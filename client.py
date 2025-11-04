@@ -124,7 +124,7 @@ class ChatClient(ctk.CTk):
         self.message_widgets.append(bubble)
 
         self.chat_frame.update_idletasks()
-        self.chat_frame._parent_canvas.yview_moveto(1.0)  # scroll to bottom
+        self.chat_frame._parent_canvas.yview_moveto(1.0)  
 
 
     def play_send_sound(self):
