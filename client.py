@@ -35,7 +35,6 @@ class ChatClient(ctk.CTk):
 
         self.message_widgets = []
 
-        # ===== Message Input & Send Button =====
         self.bottom_frame = ctk.CTkFrame(self, fg_color="#1e1e1e")
         self.bottom_frame.pack(fill='x', padx=10, pady=5)
 
