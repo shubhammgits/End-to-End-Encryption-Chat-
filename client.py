@@ -28,7 +28,6 @@ class ChatClient(ctk.CTk):
         self.header = ctk.CTkLabel(self, text="🔐 Secure Chat", font=("Arial", 18, "bold"), text_color="#8e44ad")
         self.header.pack(pady=(10, 5))
 
-        # ===== Scrollable Frame for Chat =====
         self.chat_frame = ctk.CTkScrollableFrame(self, width=520, height=460, fg_color="#121212")
         self.chat_frame.pack(pady=(0, 10))
         self.chat_frame.grid_columnconfigure(0, weight=1)
