@@ -21,11 +21,10 @@ class ChatClient(ctk.CTk):
         super().__init__()
 
         ctk.set_appearance_mode("dark")
-        self.title("Secure Chat by EsraaCodes 💬")
+        self.title("Secure Chat by Shubham")
         self.geometry("550x650")
         self.configure(fg_color="#121212")
 
-        # ===== Header =====
         self.header = ctk.CTkLabel(self, text="🔐 Secure Chat", font=("Arial", 18, "bold"), text_color="#8e44ad")
         self.header.pack(pady=(10, 5))
 
