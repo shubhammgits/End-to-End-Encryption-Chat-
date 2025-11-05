@@ -2,7 +2,8 @@ import socket
 import threading
 import json
 
-HOST = '127.0.0.1'
+# Changed from '127.0.0.1' to '0.0.0.0' to bind to all interfaces
+HOST = '0.0.0.0'
 PORT = 65432
 
 clients = {}  
@@ -50,7 +51,12 @@ def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
     server.listen()
+    # Get the actual IP address of the machine
+    import socket as sock
+    local_ip = sock.gethostbyname(sock.gethostname())
     print(f"Server started on {HOST}:{PORT}")
+    print(f"Local IP address: {local_ip}")
+    print("To connect from other devices on the same network, use this IP address")
 
     while True:
         client_socket, addr = server.accept()

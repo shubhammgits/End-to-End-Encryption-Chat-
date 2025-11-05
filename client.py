@@ -6,12 +6,20 @@ import threading
 import json
 from playsound import playsound
 import os
+import sys
 
 from crypto_utils import generate_keys, encrypt_message, decrypt_message, serialize_public_key
 from cryptography.hazmat.primitives import serialization
 
+# Default values
 HOST = '127.0.0.1'
 PORT = 65432
+
+# Allow command line arguments to specify host and port
+if len(sys.argv) > 1:
+    HOST = sys.argv[1]
+if len(sys.argv) > 2:
+    PORT = int(sys.argv[2])
 
 private_key, public_key = generate_keys()
 
@@ -25,8 +33,12 @@ class ChatClient(ctk.CTk):
         self.geometry("550x650")
         self.configure(fg_color="#121212")
 
+        # Connection info display
+        self.connection_info = ctk.CTkLabel(self, text=f"Connected to: {HOST}:{PORT}", font=("Arial", 12), text_color="#aaaaaa")
+        self.connection_info.pack(pady=(5, 0))
+
         self.header = ctk.CTkLabel(self, text="🔐 Secure Chat", font=("Arial", 18, "bold"), text_color="#8e44ad")
-        self.header.pack(pady=(10, 5))
+        self.header.pack(pady=(5, 5))
 
         self.chat_frame = ctk.CTkScrollableFrame(self, width=520, height=460, fg_color="#121212")
         self.chat_frame.pack(pady=(0, 10))
@@ -44,8 +56,12 @@ class ChatClient(ctk.CTk):
         self.send_button = ctk.CTkButton(self.bottom_frame, text="Send", command=self.send_message, fg_color="#8e44ad", hover_color="#732d91")
         self.send_button.pack(side='left', padx=5, pady=10)
 
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.connect((HOST, PORT))
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((HOST, PORT))
+        except Exception as e:
+            self.show_error(f"Failed to connect to server {HOST}:{PORT}\n{str(e)}")
+            return
 
         serialized_pub = serialize_public_key(public_key)
         self.client_socket.send(serialized_pub.encode())
@@ -56,6 +72,10 @@ class ChatClient(ctk.CTk):
         thread = threading.Thread(target=self.receive_messages)
         thread.daemon = True
         thread.start()
+
+    def show_error(self, message):
+        error_label = ctk.CTkLabel(self, text=message, text_color="red", wraplength=500)
+        error_label.pack(pady=20)
 
     def send_message(self):
         message = self.msg_entry.get()
@@ -138,7 +158,10 @@ class ChatClient(ctk.CTk):
 
     def on_closing(self):
         self.running = False
-        self.client_socket.close()
+        try:
+            self.client_socket.close()
+        except:
+            pass
         self.destroy()
 
 
