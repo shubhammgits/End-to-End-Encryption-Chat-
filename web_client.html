@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #4cc9f0;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .connection-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .chat-container {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .sent {
+            background: linear-gradient(90deg, #4361ee, #3a0ca3);
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .received {
+            background: rgba(255, 255, 255, 0.1);
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .system {
+            background: rgba(0, 0, 0, 0.3);
+            margin: 10px auto;
+            text-align: center;
+            max-width: 50%;
+            font-size: 0.8rem;
+            padding: 8px 12px;
+        }
+        
+        .input-container {
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 15px;
+        }
+        
+        #messageInput {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        #messageInput::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        #sendButton {
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        #sendButton:hover {
+            transform: scale(1.05);
+        }
+        
+        #sendButton:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.9rem;
+            color: #4cc9f0;
+        }
+        
+        .key-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                height: auto;
+                min-height: 90vh;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .message {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Secure Chat</h1>
+            <div class="connection-info">
+                <span id="connectionStatus">Connecting...</span>
+            </div>
+        </header>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="message system">Welcome to Secure Chat! Your messages are end-to-end encrypted.</div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off">
+            <button id="sendButton" disabled>Send</button>
+        </div>
+    </div>
+
+    <!-- Include Socket.IO client library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusDiv = document.getElementById('status');
+        
+        // Store for encryption keys
+        let publicKey = null;
+        let privateKey = null;
+        let clientsPublicKeys = {};
+        
+        // Generate RSA key pair
+        async function generateKeyPair() {
+            statusDiv.textContent = "Generating encryption keys...";
+            try {
+                const keyPair = await window.crypto.subtle.generateKey(
+                    {
+                        name: "RSA-OAEP",
+                        modulusLength: 2048,
+                        publicExponent: new Uint8Array([1, 0, 1]),
+                        hash: "SHA-256",
+                    },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                publicKey = keyPair.publicKey;
+                privateKey = keyPair.privateKey;
+                
+                // Export public key to send to server
+                const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+                const publicKeyString = arrayBufferToBase64(exportedPublicKey);
+                
+                // Register with server
+                socket.emit('register_client', {
+                    key: publicKeyString
+                });
+                
+                statusDiv.textContent = "Keys generated successfully!";
+            } catch (error) {
+                console.error("Key generation error:", error);
+                statusDiv.textContent = "Error generating keys: " + error.message;
+            }
+        }
+        
+        // Convert ArrayBuffer to Base64
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+        
+        // Convert Base64 to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        // Encrypt message with recipient's public key
+        async function encryptMessage(message, recipientPublicKey) {
+            try {
+                const encodedMessage = new TextEncoder().encode(message);
+                const encrypted = await window.crypto.subtle.encrypt(
+                    {
+                        name: "RSA-OAEP"
+                    },
+                    recipientPublicKey,
+                    encodedMessage
+                );
+                return arrayBufferToBase64(encrypted);
+            } catch (error) {
+                console.error("Encryption error:", error);
+                throw error;
+            }
+        }
+        
+        // Decrypt message with own private key
+        async function decryptMessage(encryptedMessage) {
+            try {
+                const encryptedBuffer = base64ToArrayBuffer(encryptedMessage);
+                const decrypted = await window.crypto.subtle.decrypt(
+                    {
+                        name: "RSA-OAEP"
+                    },
+                    privateKey,
+                    encryptedBuffer
+                );
+                return new TextDecoder().decode(decrypted);
+            } catch (error) {
+                console.error("Decryption error:", error);
+                throw error;
+            }
+        }
+        
+        // Import public key from string
+        async function importPublicKey(keyString) {
+            try {
+                const keyBuffer = base64ToArrayBuffer(keyString);
+                const publicKey = await window.crypto.subtle.importKey(
+                    "spki",
+                    keyBuffer,
+                    {
+                        name: "RSA-OAEP",
+                        hash: "SHA-256",
+                    },
+                    true,
+                    ["encrypt"]
+                );
+                return publicKey;
+            } catch (error) {
+                console.error("Key import error:", error);
+                throw error;
+            }
+        }
+        
+        // Add message to chat
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            
+            if (sender === 'me') {
+                messageDiv.classList.add('sent');
+            } else if (sender === 'system') {
+                messageDiv.classList.add('system');
+            } else {
+                messageDiv.classList.add('received');
+            }
+            
+            messageDiv.textContent = text;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Socket.IO event handlers
+        socket.on('connect', function() {
+            connectionStatus.textContent = "Connected to server";
+            connectionStatus.style.color = "#4ade80";
+            sendButton.disabled = false;
+            generateKeyPair();
+        });
+        
+        socket.on('disconnect', function() {
+            connectionStatus.textContent = "Disconnected from server";
+            connectionStatus.style.color = "#f87171";
+            sendButton.disabled = true;
+            addMessage("Connection to server lost. Please refresh the page.", "system");
+        });
+        
+        socket.on('keys_update', async function(data) {
+            // Update clients' public keys
+            clientsPublicKeys = {};
+            for (const [sid, keyStr] of Object.entries(data.keys)) {
+                try {
+                    const key = await importPublicKey(keyStr);
+                    clientsPublicKeys[sid] = key;
+                } catch (error) {
+                    console.error(`Error importing key for ${sid}:`, error);
+                }
+            }
+            addMessage("[Updated keys list]", "system");
+        });
+        
+        socket.on('encrypted_message', async function(data) {
+            // Decrypt and display message
+            try {
+                const decryptedMessage = await decryptMessage(data.message);
+                addMessage(decryptedMessage, "received");
+            } catch (error) {
+                console.error("Decryption failed:", error);
+                addMessage("[Failed to decrypt message]", "system");
+            }
+        });
+        
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            
+            if (Object.keys(clientsPublicKeys).length === 0) {
+                addMessage("No other users connected to send message to", "system");
+                messageInput.value = "";
+                return;
+            }
+            
+            try {
+                // Send to all connected clients
+                for (const [sid, pubKey] of Object.entries(clientsPublicKeys)) {
+                    try {
+                        const encryptedMessage = await encryptMessage(message, pubKey);
+                        socket.emit('encrypted_message', {
+                            message: encryptedMessage
+                        });
+                    } catch (error) {
+                        console.error(`Error sending to ${sid}:`, error);
+                        addMessage(`Error sending to user: ${error.message}`, "system");
+                    }
+                }
+                
+                // Display own message
+                addMessage(message, "me");
+                messageInput.value = "";
+            } catch (error) {
+                console.error("Send error:", error);
+                addMessage("Failed to send message: " + error.message, "system");
+            }
+        }
+        
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && !socket.connected) {
+                location.reload();
+            }
+        });
+    </script>
+</body>
+</html>
