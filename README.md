@@ -12,9 +12,16 @@ This is a secure chat application with end-to-end encryption that can be hosted 
 
 ### Prerequisites
 1. Python 3.8 or higher
-2. Install required packages:
+2. Install packages depending on what you want to run:
+
+   **Web app (needed for deployment):**
    ```
    pip install -r requirements.txt
+   ```
+
+   **Desktop app:**
+   ```
+   pip install -r requirements-desktop.txt
    ```
 
 ### Running the Application Locally

@@ -1,5 +1,2 @@
-﻿cryptography==46.0.3
-customtkinter==5.2.2
-pygame==2.6.1
-Flask==2.3.2
+﻿Flask==2.3.2
 Flask-SocketIO==5.3.4
