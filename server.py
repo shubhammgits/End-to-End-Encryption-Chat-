@@ -6,29 +6,55 @@ import json
 HOST = '0.0.0.0'
 PORT = 65432
 
-clients = {}  
+# client_socket -> {'public_key': str, 'addr': (ip, port)}
+clients = {}
+clients_lock = threading.Lock()
+
+
+def _remove_client(client_socket):
+    try:
+        client_socket.close()
+    except Exception:
+        pass
+    with clients_lock:
+        clients.pop(client_socket, None)
+
+
+def send_keys_update():
+    """Send updated list of public keys to all connected clients."""
+    with clients_lock:
+        keys = {str(info['addr']): info['public_key'] for info in clients.values()}
+        payload = json.dumps(keys).encode()
+        sockets = list(clients.keys())
+
+    for sock in sockets:
+        try:
+            sock.send(payload)
+        except Exception:
+            _remove_client(sock)
+
 
 def broadcast(message, sender_socket):
-    for client in clients:
-        if client != sender_socket:
-            try:
-                client.send(message)
-            except:
-                client.close()
-                del clients[client]
+    with clients_lock:
+        recipients = [s for s in clients.keys() if s is not sender_socket]
+
+    for sock in recipients:
+        try:
+            sock.send(message)
+        except Exception:
+            _remove_client(sock)
+
 
 def handle_client(client_socket):
+    addr = None
     try:
         pubkey_data = client_socket.recv(4096).decode()
-        clients[client_socket] = {'public_key': pubkey_data, 'addr': client_socket.getpeername()}
-        print(f"Received public key from {clients[client_socket]['addr']}")
+        addr = client_socket.getpeername()
 
-        def send_keys_update():
-            keys = {str(addr): info['public_key'] for client, info in clients.items() for addr in [info['addr']]}
-            keys_json = json.dumps(keys).encode()
-            for client in clients:
-                client.send(keys_json)
+        with clients_lock:
+            clients[client_socket] = {'public_key': pubkey_data, 'addr': addr}
 
+        print(f"Received public key from {addr}")
         send_keys_update()
 
         while True:
@@ -41,11 +67,11 @@ def handle_client(client_socket):
         print(f"Error: {e}")
 
     finally:
-        print(f"Connection closed {clients[client_socket]['addr']}")
-        client_socket.close()
-        if client_socket in clients:
-            del clients[client_socket]
+        if addr is not None:
+            print(f"Connection closed {addr}")
+        _remove_client(client_socket)
         send_keys_update()
+
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,7 +87,7 @@ def start_server():
     while True:
         client_socket, addr = server.accept()
         print(f"New connection from {addr}")
-        thread = threading.Thread(target=handle_client, args=(client_socket,))
+        thread = threading.Thread(target=handle_client, args=(client_socket,), daemon=True)
         thread.start()
 
 if __name__ == "__main__":

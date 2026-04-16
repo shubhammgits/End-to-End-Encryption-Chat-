@@ -19,6 +19,8 @@ This is a secure chat application with end-to-end encryption that can be hosted 
 
 ### Running the Application Locally
 
+#### Desktop (TCP)
+
 1. Start the server:
    ```
    python server.py
@@ -28,6 +30,15 @@ This is a secure chat application with end-to-end encryption that can be hosted 
    ```
    python client.py
    ```
+
+#### Web (Browser)
+
+1. Start the web server:
+   ```
+   python web_server.py
+   ```
+
+2. Open: http://127.0.0.1:5000
 
 ### Hosting Options for Free Public Access
 

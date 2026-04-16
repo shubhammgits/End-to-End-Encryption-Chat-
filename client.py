@@ -4,7 +4,6 @@ import pygame
 import socket
 import threading
 import json
-from playsound import playsound
 import os
 import sys
 
@@ -148,12 +147,17 @@ class ChatClient(ctk.CTk):
 
 
     def play_send_sound(self):
+        sound_path = os.path.join(os.path.dirname(__file__), "send_sound.mp3")
+        if not os.path.exists(sound_path):
+            return
         try:
-            pygame.mixer.init()
-            pygame.mixer.music.load("send_sound.mp3")
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+            pygame.mixer.music.load(sound_path)
             pygame.mixer.music.play()
-        except Exception as e:
-            print("Error playing sound:", e)
+        except Exception:
+            # Sound is optional; ignore playback issues
+            return
 
 
     def on_closing(self):

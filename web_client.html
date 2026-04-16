@@ -195,8 +195,8 @@
         </div>
     </div>
 
-    <!-- Include Socket.IO client library -->
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Include Socket.IO client library (served via CDN) -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script>
         // Socket.IO connection
         const socket = io();
@@ -392,11 +392,12 @@
             }
             
             try {
-                // Send to all connected clients
+                // Send to all connected clients (one encrypted payload per recipient)
                 for (const [sid, pubKey] of Object.entries(clientsPublicKeys)) {
                     try {
                         const encryptedMessage = await encryptMessage(message, pubKey);
                         socket.emit('encrypted_message', {
+                            to: sid,
                             message: encryptedMessage
                         });
                     } catch (error) {
